@@ -1,0 +1,196 @@
+API URL Manual
+This document provides a complete reference for all API endpoints in your Node.js MySQL application.
+
+Base URL
+All endpoints start with: http://your-server-address:3000/api/
+
+Authentication
+Include JWT token in the Authorization header:
+
+text
+Authorization: Bearer your.jwt.token
+1. Account Management
+Authentication
+text
+POST   /api/accounts/register
+POST   /api/accounts/login
+Account Operations
+text
+GET    /api/accounts/:id
+PUT    /api/accounts/:id
+2. Activity Preferences
+text
+GET    /api/activity/:account_id
+PUT    /api/activity/:account_id
+3. Articles
+text
+GET    /api/articles
+GET    /api/articles/:id
+POST   /api/articles
+PUT    /api/articles/:id
+DELETE /api/articles/:id
+GET    /api/articles/categories/all
+4. Comments
+text
+GET    /api/comments
+POST   /api/comments
+PUT    /api/comments/:id
+DELETE /api/comments/:id
+POST   /api/comments/:id/like
+5. Guides
+text
+GET    /api/guides
+GET    /api/guides/:id
+POST   /api/guides
+PUT    /api/guides/:id
+DELETE /api/guides/:id
+GET    /api/guides/categories/all
+POST   /api/guides/:id/download
+6. Podcasts
+text
+GET    /api/podcasts
+GET    /api/podcasts/:id
+POST   /api/podcasts
+PUT    /api/podcasts/:id
+DELETE /api/podcasts/:id
+GET    /api/podcasts/categories/all
+POST   /api/podcasts/:id/view
+POST   /api/podcasts/:id/toggle-featured
+7. Products
+text
+GET    /api/products
+GET    /api/products/:id
+POST   /api/products
+PUT    /api/products/:id
+DELETE /api/products/:id
+GET    /api/products/categories/all
+POST   /api/products/:id/toggle-new
+PUT    /api/products/:id/stock
+8. Reviews
+text
+GET    /api/reviews/product/:product_id
+POST   /api/reviews
+PUT    /api/reviews/:id
+DELETE /api/reviews/:id
+9. Security & Compliance
+text
+GET    /api/security/:account_id
+PUT    /api/security/:account_id
+POST   /api/security/:account_id/security-questions
+10. Updates
+text
+GET    /api/updates
+GET    /api/updates/:id
+POST   /api/updates
+PUT    /api/updates/:id
+DELETE /api/updates/:id
+11. Usage Metrics
+text
+GET    /api/usage/:account_id
+POST   /api/usage/:account_id/activity
+POST   /api/usage/:account_id/time
+Health Check
+text
+GET    /api/health
+Usage Examples
+1. Register a new user
+text
+POST http://localhost:3000/api/accounts/register
+Body:
+{
+  "username": "newuser",
+  "password": "password123"
+}
+2. Get all articles
+text
+GET http://localhost:3000/api/articles
+3. Create a new product (authenticated)
+text
+POST http://localhost:3000/api/products
+Headers:
+Authorization: Bearer your.jwt.token
+
+Body:
+{
+  "name": "Premium T-Shirt",
+  "price": 29.99,
+  "image_url": "http://example.com/shirt.jpg",
+  "category_id": 1
+}
+4. Get comments for a podcast
+text
+GET http://localhost:3000/api/comments?target_type=podcast&target_id=5
+5. Update article
+text
+PUT http://localhost:3000/api/articles/3
+Headers:
+Authorization: Bearer your.jwt.token
+
+Body:
+{
+  "title": "Updated Article Title",
+  "read_time": 12
+}
+6. Delete a guide
+text
+DELETE http://localhost:3000/api/guides/7
+Headers:
+Authorization: Bearer your.jwt.token
+Query Parameters
+Several endpoints support query parameters for filtering:
+
+Comments:
+
+target_type: Filter by comment target (podcast/article)
+
+target_id: Filter by specific target ID
+
+Products:
+
+category: Filter by category ID
+
+new: Filter new products (?new=true)
+
+Podcasts:
+
+featured: Filter featured podcasts (?featured=true)
+
+Response Codes
+200 OK: Successful GET requests
+
+201 Created: Successful POST requests
+
+204 No Content: Successful DELETE requests
+
+400 Bad Request: Invalid input data
+
+401 Unauthorized: Missing or invalid authentication
+
+403 Forbidden: Authenticated but not authorized
+
+404 Not Found: Resource doesn't exist
+
+500 Internal Server Error: Server-side error
+
+Pagination
+For endpoints returning arrays, you can implement pagination by adding these query parameters:
+
+page: Page number (default: 1)
+
+limit: Items per page (default: 10)
+
+Example:
+
+text
+GET /api/articles?page=2&limit=5
+Sorting
+Add sort parameter with field name and direction:
+
+sort=title:asc
+
+sort=views:desc
+
+Example:
+
+text
+GET /api/podcasts?sort=views:desc

@@ -1,0 +1,313 @@
+Needed Libraries
+
+npm init -y
+npm install express mysql2 dotenv body-parser cors bcrypt jsonwebtoken
+
+
+File Structure
+
+/your-project
+  ├── config/
+  │   └── db.js
+  ├── controllers/
+  │   ├── accountController.js
+  │   ├── activityController.js
+  │   ├── articleController.js
+  │   ├── commentController.js
+  │   ├── guideController.js
+  │   ├── podcastController.js
+  │   ├── productController.js
+  │   ├── reviewController.js
+  │   ├── securityController.js
+  │   └── updateController.js
+  ├── models/
+  │   ├── accountModel.js
+  │   ├── activityModel.js
+  │   ├── articleModel.js
+  │   ├── commentModel.js
+  │   ├── guideModel.js
+  │   ├── podcastModel.js
+  │   ├── productModel.js
+  │   ├── reviewModel.js
+  │   ├── securityModel.js
+  │   └── updateModel.js
+  ├── routes/
+  │   ├── accountRoutes.js
+  │   ├── activityRoutes.js
+  │   ├── articleRoutes.js
+  │   ├── commentRoutes.js
+  │   ├── guideRoutes.js
+  │   ├── podcastRoutes.js
+  │   ├── productRoutes.js
+  │   ├── reviewRoutes.js
+  │   ├── securityRoutes.js
+  │   └── updateRoutes.js
+  ├── middlewares/
+  │   └── auth.js
+  ├── app.js
+  ├── package.json
+  └── .env
+
+
+drop database podmyth;
+
+Create database podmyth;
+
+use podmyth;
+
+-- ====================================
+-- 📁 CATEGORY REFERENCE TABLES
+-- ====================================
+CREATE TABLE PodcastCategory (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE GuideCategory (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE ArticleCategory (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE ProductCategory (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE media (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  content_type ENUM('product', 'podcast', 'article') NOT NULL,
+  content_id INT NOT NULL,
+  file_path VARCHAR(255) NOT NULL,
+  file_type VARCHAR(50) NOT NULL,
+  is_primary BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX (content_type, content_id)
+);
+
+-- ====================================
+-- 🎙️ PODCAST TABLE
+-- ====================================
+CREATE TABLE IF NOT EXISTS podcasts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NOT NULL,
+  author VARCHAR(255) NOT NULL,
+  thumbnail_url VARCHAR(255),
+  video_url VARCHAR(255) NOT NULL,
+  duration INT NOT NULL COMMENT 'In seconds',
+  file_size INT COMMENT 'In megabytes',
+  resolution VARCHAR(20) COMMENT 'e.g., 1080p, 4K',
+  category VARCHAR(100) NOT NULL,
+  is_published BOOLEAN DEFAULT FALSE,
+  publish_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FULLTEXT INDEX idx_search (title, description, author)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ====================================
+-- 💬 COMMENTS TABLE (MULTI-CONTENT)
+-- ====================================
+CREATE TABLE Comments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    target_type VARCHAR(20),   -- 'podcast' or 'article'
+    target_id INT,             -- ID of the podcast or article
+    comment_text TEXT,
+    posted_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    like_count INT DEFAULT 0,
+    is_liked BOOLEAN DEFAULT FALSE
+);
+
+-- ====================================
+-- 📘 PODGUIDE TABLE
+-- ====================================
+CREATE TABLE PodGuide (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100),
+    author VARCHAR(100),
+    description TEXT,
+    image_url VARCHAR(255),
+    format VARCHAR(50),
+    pages INT,
+    downloads INT DEFAULT 0,
+    category_id INT,
+    is_new BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (category_id) REFERENCES GuideCategory(id)
+);
+
+-- ====================================
+-- 🔔 OTHER UPDATES TABLE
+-- ====================================
+CREATE TABLE OtherUpdates (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100),
+    update_type VARCHAR(50),
+    posted_date DATE,
+    related_entity VARCHAR(50)
+);
+
+-- ====================================
+-- 📰 ARTICLES TABLE
+-- ====================================
+CREATE TABLE Articles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100),
+    author VARCHAR(100),
+    excerpt TEXT,
+    image_url VARCHAR(255),
+    read_time INT,
+    publish_date DATE,
+    category_id INT,
+    is_saved BOOLEAN DEFAULT FALSE,
+    views INT DEFAULT 0,
+    FOREIGN KEY (category_id) REFERENCES ArticleCategory(id)
+);
+
+-- ====================================
+-- 👕 CLOTHING PRODUCTS TABLE WITH ENHANCEMENTS
+-- ====================================
+CREATE TABLE IF NOT EXISTS products (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  price DECIMAL(10,2) NOT NULL,
+  discount_rate DECIMAL(4,2) DEFAULT 0.00,
+  stock INT NOT NULL DEFAULT 0,
+  is_new BOOLEAN DEFAULT FALSE,
+  category VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FULLTEXT INDEX idx_search (name, description)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 👕 INSERT STYLED CLOTHING PRODUCTS
+INSERT INTO products (name, description, price, discount_rate, stock, is_new, category)
+VALUES
+('Classic Denim Jacket', 'Timeless medium-wash denim jacket with buttoned front and adjustable cuffs.', 69.99, 0.00, 45, TRUE, 'clothing'),
+('Slim Fit Chinos', 'Stretch cotton chinos ideal for versatile styling.', 49.50, 15.00, 75, FALSE, 'clothing'),
+('Vintage Graphic Tee', 'Retro printed tee with faded color wash for a throwback vibe.', 24.99, 5.00, 120, TRUE, 'clothing'),
+('Hooded Sweatshirt', 'Cozy fleece hoodie available in multiple shades.', 39.95, 20.00, 60, FALSE, 'clothing'),
+('Leather Chelsea Boots', 'Premium brown leather boots built for style and comfort.', 89.00, 12.50, 30, FALSE, 'clothing'),
+('Puffer Vest', 'Light quilted vest with zip-up front and water-resistant shell.', 54.99, 8.00, 40, TRUE, 'clothing');
+
+
+
+-- ====================================
+-- ⭐ REVIEWS TABLE FOR PRODUCTS
+-- ====================================
+CREATE TABLE Reviews (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT,
+    user_id INT,
+    review_text TEXT,
+    rating DECIMAL(2,1) CHECK (rating BETWEEN 0 AND 5),
+    review_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    verified_purchase BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (product_id) REFERENCES Products(id)
+);
+
+-- 📝 Random review entries
+INSERT INTO Reviews (product_id, user_id, review_text, rating, verified_purchase)
+VALUES
+(1, 101, 'Great quality and fast delivery!', 4.5, TRUE),
+(2, 102, 'Fits well but the color was slightly off.', 3.8, TRUE),
+(3, 103, 'Excellent value for money. Highly recommend!', 5.0, TRUE),
+(1, 104, 'Not satisfied with the build quality.', 2.7, FALSE),
+(2, 105, 'Stylish and comfy. Worth the price.', 4.3, TRUE),
+(3, 106, 'Average product. Works as expected.', 3.0, TRUE),
+(1, 107, 'Impressive performance and sleek design.', 4.8, TRUE),
+(3, 108, 'The packaging was damaged on arrival.', 2.5, FALSE);
+
+
+
+-- ====================================
+-- 🔐 ACCOUNT DETAILS TABLE
+-- ====================================
+CREATE TABLE Account (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(50) UNIQUE NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    user_role VARCHAR(10) DEFAULT 'admin',
+    phone VARCHAR(20) NOT NULL, -- Added phone field
+    password_hash VARCHAR(255) NOT NULL,
+    profile_image VARCHAR(255) NULL,
+    account_status VARCHAR(20) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_password_change TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_verified BOOLEAN DEFAULT FALSE
+);
+
+-- ====================================
+-- 🌐 ACTIVITY & PREFERENCES TABLE
+-- ====================================
+CREATE TABLE ActivityPreferences (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    account_id INT,
+    language_preference VARCHAR(20) DEFAULT 'en',
+    theme_preference VARCHAR(10) DEFAULT 'light',
+    subscription_level VARCHAR(20) DEFAULT 'free',
+    email_notifications_enabled BOOLEAN DEFAULT TRUE,
+    interests TEXT,
+    FOREIGN KEY (account_id) REFERENCES Account(id)
+);
+
+-- ====================================
+-- 📊 USAGE & METRICS TABLE
+-- ====================================
+CREATE TABLE UsageMetrics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    account_id INT,
+    login_count INT DEFAULT 0,
+    total_time_spent INT DEFAULT 0, -- in minutes
+    last_activity TIMESTAMP,
+    device_type VARCHAR(50),
+    location VARCHAR(100),          -- can store coordinates or IP
+    FOREIGN KEY (account_id) REFERENCES Account(id)
+);
+
+-- ====================================
+-- ⚠️ SECURITY & COMPLIANCE TABLE
+-- ====================================
+CREATE TABLE SecurityCompliance (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    account_id INT,
+    security_questions TEXT,
+    two_factor_enabled BOOLEAN DEFAULT FALSE,
+    consent_given BOOLEAN DEFAULT FALSE,
+    data_retention_period INT,      -- in days
+    gdpr_compliance_status VARCHAR(20) DEFAULT 'unknown',
+    FOREIGN KEY (account_id) REFERENCES Account(id)
+);
+
+
+-- =========================================
+-- Inserting new podcast
+-- =========================================
+INSERT INTO PodcastCategory (name) VALUES
+('Technology'),
+('Business'),
+('Mental Health'),
+('Culture'),
+('Education');
+
+
+-- Insert sample video podcasts
+INSERT INTO podcasts (title, description, author, thumbnail_url, video_url, duration, resolution, file_size, category, is_published) VALUES
+('Getting Started with React', 'Learn React fundamentals in 30 minutes', 'Jane Developer', 'https://example.com/thumbnails/react.jpg', 'https://example.com/videos/react.mp4', 1800, '1080p', 450, 'Programming', TRUE),
+('Advanced CSS Techniques', 'Master modern CSS layouts and animations', 'John Designer', 'https://example.com/thumbnails/css.jpg', 'https://example.com/videos/css.mp4', 2700, '720p', 320, 'Design', TRUE),
+('Node.js Performance Tips', 'Optimize your Node applications', 'Sam Backend', 'https://example.com/thumbnails/node.jpg', 'https://example.com/videos/node.mp4', 2400, '4K', 680, 'Programming', TRUE),
+('UX Design Principles', 'Essential UX practices for developers', 'Lisa UX', 'https://example.com/thumbnails/ux.jpg', 'https://example.com/videos/ux.mp4', 2100, '1080p', 380, 'Design', FALSE),
+('Docker for Beginners', 'Containerize your applications', 'Alex DevOps', 'https://example.com/thumbnails/docker.jpg', 'https://example.com/videos/docker.mp4', 3600, '720p', 520, 'DevOps', TRUE),
+('Mobile App Development', 'Build cross-platform apps with Flutter', 'Taylor Mobile', 'https://example.com/thumbnails/flutter.jpg', 'https://example.com/videos/flutter.mp4', 3300, '1080p', 610, 'Mobile', TRUE),
+('Database Optimization', 'SQL and NoSQL performance tuning', 'Chris DBA', 'https://example.com/thumbnails/db.jpg', 'https://example.com/videos/database.mp4', 3900, '720p', 430, 'Database', FALSE),
+('Web Security Basics', 'Protect your web applications', 'Pat Security', 'https://example.com/thumbnails/security.jpg', 'https://example.com/videos/security.mp4', 2250, '1080p', 350, 'Security', TRUE);
+
+insert into Account(email, username, user_role, phone, password_hash)
+values ('admin@gmail.com','Admin', 'admin', '0000000000', '$2b$10$2B6taYWJJjesOfRRjP5TLOIRZDMlcjnp8UNGkHbyQGJOit4J1917K');
