@@ -116,7 +116,7 @@
 
 
 const Product = require('../models/productModel');
-
+const Media = require('../models/mediaModel');
 const fs = require('fs');
 const path = require('path');
 
@@ -128,24 +128,6 @@ exports.getProducts = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
-
-
-
-// exports.createProduct = async (req, res) => {
-//   try {
-//     const product = await Product.createProduct(req.body);
-//     console.log('Product created:', product);
-//     res.status(201).json({
-//       success: true,
-//       data: product
-//     });
-//   } catch (error) {
-//     res.status(400).json({
-//       success: false,
-//       error: error.message
-//     });
-//   }
-// };
 
 exports.createProduct = async (req, res) => {
   try {
@@ -179,7 +161,6 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-
 exports.getProductById = async (req, res) =>{
   try {
       const id = req.params.id;
@@ -197,7 +178,6 @@ exports.getProductById = async (req, res) =>{
       });
     }
 }
-
 
 exports.getProducts = async (req, res) => {
   try {
@@ -242,6 +222,50 @@ exports.getProductStats = async (req, res) => {
   }
 };
 
+exports.uploadImages = async (req, res) => {
+  try {
+    const productId = req.params.productId;
+    const files = req.files;
+    
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No files uploaded'
+      });
+    }
+
+    const mediaIds = [];
+    try {
+      for (const file of files) {
+        const mediaId = await Media.create({
+          contentType: 'product',
+          contentId: productId,
+          filePath: file.path,
+          fileType: file.mimetype,
+          isPrimary: false
+        });
+        mediaIds.push(mediaId);
+      }
+    } catch (error) {
+      // Clean up any uploaded files if error occurs
+      files.forEach(file => {
+        fs.unlinkSync(file.path);
+      });
+      throw error;
+    }
+
+    res.json({
+      success: true,
+      mediaIds
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
 exports.deleteProduct = async (req, res) => {
   try {
     const success = await Product.delete(req.params.id);
@@ -252,6 +276,27 @@ exports.deleteProduct = async (req, res) => {
       });
     }
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.deleteImage = async (req, res) => {
+  try {
+    const { productId, imageId } = req.params;
+    const filePath = await Media.delete(imageId, productId);
+    if (!filePath) {
+      return res.status(404).json({
+        success: false,
+        error: 'Image not found'
+      });
+    }
+    // If deletion was successful, remove the file from the filesystem
+    fs.unlinkSync(filePath);
+    res.json({ success: true, message: 'Image deleted successfully' });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -272,6 +317,45 @@ exports.updateProduct = async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(400).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.countProducts = async (req, res) => {
+  try {
+    const count = await Product.count();
+    res.json({
+      success: true,
+      count
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.getProductsFrontEnd = async (req, res) => {
+  try {
+
+
+    const { search = '', page = 1, limit = 10, filter = 'all' } = req.query;
+    
+    const products = await Product.getProductsFrontEnd({
+      search,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      filter
+    });
+    res.json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    res.status(500).json({
       success: false,
       error: error.message
     });

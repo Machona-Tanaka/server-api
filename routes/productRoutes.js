@@ -1,17 +1,4 @@
-// const express = require('express');
-// const router = express.Router();
-// const productController = require('../controllers/productController');
 
-// router.get('/', productController.getAllProducts);
-// router.get('/:id', productController.getProductById);
-// router.post('/', productController.createProduct);
-// router.put('/:id', productController.updateProduct);
-// router.delete('/:id', productController.deleteProduct);
-// router.get('/categories/all', productController.getProductCategories);
-// router.post('/:id/toggle-new', productController.toggleNewStatus);
-// router.put('/:id/stock', productController.updateStock);
-
-// module.exports = router;
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/productController');
@@ -45,6 +32,7 @@ const fileFilter = (req, file, cb) => {
     return cb(null, true);
   }
   cb(new Error('Only images (jpeg, png, gif, webp) are allowed'));
+  return message = 'Only images (jpeg, png, gif, webp) are allowed';
 };
 
 const upload = multer({ 
@@ -55,10 +43,19 @@ const upload = multer({
 
 // Routes
 router.get('/', controller.getProducts);
-router.post('/new', upload.array('image_file', 10), controller.createProduct); // Moved upload middleware here
+router.get('/count', controller.countProducts);
 router.get('/single/:id', controller.getProductById);
 router.get('/stats', controller.getProductStats);
+router.get('/frontend', controller.getProductsFrontEnd);
+
+
+router.post('/new', upload.array('image_file', 10), controller.createProduct); // Moved upload middleware here
+router.post('/:productId/images', upload.array('images', 10), controller.uploadImages);
+
+router.delete('/:productId/images/:imageId', controller.deleteImage);
 router.delete('/:id', controller.deleteProduct);
+
+
 router.patch('/:id', controller.updateProduct);
 
 module.exports = router;

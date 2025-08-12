@@ -18,25 +18,10 @@ class Media {
     return result.insertId;
   }
 
-  static async setPrimary(contentType, contentId, mediaId) {
-    // First unset any existing primary media
-    await pool.query(
-      'UPDATE media SET is_primary = FALSE WHERE content_type = ? AND content_id = ?',
-      [contentType, contentId]
-    );
-    
-    // Set new primary media
-    await pool.query(
-      'UPDATE media SET is_primary = TRUE WHERE id = ? AND content_type = ? AND content_id = ?',
-      [mediaId, contentType, contentId]
-    );
-    return true;
-  }
-
-  static async delete(mediaId) {
+  static async delete(mediaId, productId) {
     const [media] = await pool.query(
-      'SELECT file_path FROM media WHERE id = ?',
-      [mediaId]
+      'SELECT file_path FROM media WHERE id = ? AND content_id = ?',
+      [mediaId, productId]
     );
     
     if (media.length === 0) return false;
@@ -50,6 +35,21 @@ class Media {
       'SELECT * FROM media WHERE content_type = ? AND content_id = ? ORDER BY is_primary DESC, created_at DESC',
       [contentType, contentId]
     );
+    return media;
+  }
+
+
+  static async findImagesByContent(contentType, contentId) {
+    const [media] = await pool.query(
+      'SELECT file_path FROM media WHERE content_type = ? AND content_id = ? ORDER BY is_primary DESC, created_at DESC',
+      [contentType, contentId]
+    );
+
+    for (const item of media) {
+      item.url = item.file_path.replace(/\\/g, '/');
+      delete item.file_path;
+    }
+
     return media;
   }
 }

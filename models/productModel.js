@@ -1,70 +1,8 @@
-// const pool = require('../config/db');
-
-// class Product {
-//   static async findAll() {
-//     const [products] = await pool.query(`
-//       SELECT p.*, pc.name as category_name 
-//       FROM Products p
-//       LEFT JOIN ProductCategory pc ON p.category_id = pc.id
-//     `);
-//     return products;
-//   }
-
-//   static async findById(id) {
-//     const [product] = await pool.query(`
-//       SELECT p.*, pc.name as category_name 
-//       FROM Products p
-//       LEFT JOIN ProductCategory pc ON p.category_id = pc.id
-//       WHERE p.id = ?
-//     `, [id]);
-//     return product[0];
-//   }
-
-//   static async create(productData) {
-//     const [result] = await pool.query('INSERT INTO Products SET ?', productData);
-//     return { id: result.insertId, ...productData };
-//   }
-
-//   static async update(id, productData) {
-//     const [result] = await pool.query('UPDATE Products SET ? WHERE id = ?', [productData, id]);
-//     return result.affectedRows > 0;
-//   }
-
-//   static async delete(id) {
-//     const [result] = await pool.query('DELETE FROM Products WHERE id = ?', [id]);
-//     return result.affectedRows > 0;
-//   }
-
-//   static async getCategories() {
-//     const [categories] = await pool.query('SELECT * FROM ProductCategory');
-//     return categories;
-//   }
-
-//   static async toggleNewStatus(id) {
-//     const [product] = await pool.query('SELECT is_new FROM Products WHERE id = ?', [id]);
-//     if (product.length === 0) return false;
-    
-//     const newStatus = !product[0].is_new;
-//     await pool.query('UPDATE Products SET is_new = ? WHERE id = ?', [newStatus, id]);
-//     return newStatus;
-//   }
-
-//   static async updateStock(id, quantity) {
-//     const [result] = await pool.query(
-//       'UPDATE Products SET stock_quantity = ? WHERE id = ?',
-//       [quantity, id]
-//     );
-//     return result.affectedRows > 0;
-//   }
-// }
-
-// module.exports = Product;
-
-
 const db = require('../config/db');
 const mediaModel = require('./mediaModel');
 
 class Product {
+
   static async findAll({ search = '', page = 1, limit = 10, filter = 'all' }) {
     const offset = (page - 1) * limit;
     let query = `SELECT  
@@ -73,7 +11,8 @@ class Product {
                     p.price, 
                     p.discount_rate, 
                     ROUND(AVG(r.rating), 1) AS rating,
-                    p.stock AS stock_quantity, 
+                    p.stock AS stock_quantity,
+                    p.category, 
                     p.is_new 
                 FROM 
                     products AS p 
@@ -145,9 +84,10 @@ class Product {
     const [result] = await db.query(
             `SELECT p.id, 
                     p.name, 
-                    p.price, 
+                    p.price, p.description, 
                     p.discount_rate,
-                    p.stock AS stock_quantity, 
+                    p.stock AS stock_quantity,
+                    p.category,
                     p.is_new
              FROM products as p WHERE id = ${id}`
     );
@@ -157,15 +97,14 @@ class Product {
     }
     // Fetch media for the product
     const media = await mediaModel.findByContent('product', id);
-    result[0].media = media;
     
+
+    // Replace backslashes with forward slashes for all image URLs
+    media.forEach(img => {
+      img.url = img.file_path.replace(/\\/g, '/');
+    });
+    result[0].media = media;
     return {result: result};
-  }
-
-  static async createProduct(data){
-    const [result] = await db.query('INSERT INTO Products SET ?', productData);
-    return { id: result.id, ...productData };
-
   }
 
   static async getStats() {
@@ -230,6 +169,70 @@ class Product {
       categories,
       latest: latestProducts
     };
+  }
+
+  static async count(){
+    const [result] = await db.query(
+      `SELECT COUNT(*) as count FROM products`
+    );
+    return result[0].count;
+  }
+
+  static async getProductsFrontEnd({ search = '', page = 1, limit = 10 , filter = 'all' }) {
+    let Query = ` GROUP BY p.id, p.name, p.price, p.discount_rate, p.stock , p.is_new, p.category ORDER BY created_at DESC LIMIT ? OFFSET ? ;`;
+    let searchQuery = `Where (p.name LIKE @search or p.description LIKE @search or p.category LIKE @search)`;
+    searchQuery = searchQuery.replace('@search', `'%${search}%'`);
+    const offset = (page - 1) * limit;
+    let queryFilter = '';
+    console.log('Filter:', filter);
+    if (filter === 'latest') {
+      queryFilter = `AND p.created_at >= NOW() - INTERVAL 7 DAY`;
+    } else if (filter.toLowerCase() === 'discount') {
+      queryFilter = `AND p.discount_rate > 0.00`;
+    } else if (filter.toLowerCase() === 'popular') {
+      queryFilter = `AND rating > 0`;
+    }
+
+    const [products] = await db.query(
+      `SELECT p.id, p.name, p.price, p.discount_rate, p.stock , p.is_new, p.category, Avg(r.rating) as rating
+       FROM products AS p LEFT JOIN Reviews AS r ON p.id = r.product_id ${searchQuery + ' ' + queryFilter + ' ' + Query}`, [limit, offset]
+    );
+   
+
+
+
+    // Fetch media for each product
+    for (const product of products) {
+      product.images = await mediaModel.findImagesByContent('product', product.id);
+      if (product.images && product.images .length > 0) {
+            const images = [];
+            for (const item of product.images) {
+                images.push(item.url);
+             }
+            product.images = images;
+        }
+
+      product.price = parseFloat(product.price);
+      if (!product.rating){
+        product.rating = 0; // Set default rating if not available
+      }
+      if (product.discount_rate > 0){
+        product.discount = product.price - (product.price * (product.discount_rate / 100));
+      } else {
+        product.discount = 0;
+      }
+    }
+    const [total] = await db.query(
+      `SELECT  COUNT(*) as count FROM products`
+    );
+    const totalPages = Math.ceil(total[0].count / limit);
+
+    return {
+      products,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      totalPages
+    };;
   }
 
   static async delete(id) {
