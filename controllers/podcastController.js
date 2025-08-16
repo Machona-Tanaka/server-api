@@ -1,158 +1,154 @@
-// const pool = require('../config/db');
-// const podCast = require('../models/podcastModel');
-
-
-// // Get all podcasts
-// exports.getAllPodcasts = async (req, res) => {
-//   try {
-//     const [podcasts] = await pool.query(`
-//       SELECT p.*, pc.name as category_name 
-//       FROM Podcast p
-//       LEFT JOIN PodcastCategory pc ON p.category_id = pc.id
-//     `);
-//     res.json(podcasts);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to fetch podcasts' });
-//   }
-// };
-
-// // Get podcast by ID
-// exports.getPodcastById = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const [podcast] = await pool.query('SELECT * FROM Podcast WHERE id = ?', [id]);
-    
-//     if (podcast.length === 0) {
-//       return res.status(404).json({ error: 'Podcast not found' });
-//     }
-    
-//     res.json(podcast[0]);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to fetch podcast' });
-//   }
-// };
-
-// // Create podcast
-// exports.createPodcast = async (req, res) => {
-//   try {
-//     const { title, host, duration, release_date, image_url, category_id, description, video_url } = req.body;
-    
-//     const [result] = await pool.query(
-//       'INSERT INTO Podcast (title, host, duration, release_date, image_url, category_id, description, video_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-//       [title, host, duration, release_date, image_url, category_id, description, video_url]
-//     );
-    
-//     res.status(201).json({ id: result.insertId, ...req.body });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to create podcast' });
-//   }
-// };
-
-// // Update podcast
-// exports.updatePodcast = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const { title, host, duration, release_date, image_url, category_id, description, video_url } = req.body;
-    
-//     const [result] = await pool.query(
-//       'UPDATE Podcast SET title = ?, host = ?, duration = ?, release_date = ?, image_url = ?, category_id = ?, description = ?, video_url = ? WHERE id = ?',
-//       [title, host, duration, release_date, image_url, category_id, description, video_url, id]
-//     );
-    
-//     if (result.affectedRows === 0) {
-//       return res.status(404).json({ error: 'Podcast not found' });
-//     }
-    
-//     res.json({ id, ...req.body });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to update podcast' });
-//   }
-// };
-
-// // Delete podcast
-// exports.deletePodcast = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const [result] = await pool.query('DELETE FROM Podcast WHERE id = ?', [id]);
-    
-//     if (result.affectedRows === 0) {
-//       return res.status(404).json({ error: 'Podcast not found' });
-//     }
-    
-//     res.status(204).end();
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to delete podcast' });
-//   }
-// };
-
-// // Get podcast categories
-// exports.getPodcastCategories = async (req, res) => {
-//   try {
-//     const [categories] = await pool.query('SELECT * FROM PodcastCategory');
-//     res.json(categories);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to fetch podcast categories' });
-//   }
-// };
-
-
-// // get podcasts by search
-// exports.getPodcastsBySearch = async (req, res) => {
-//   try {
-//     const { search } = req.query;
-//     const [podcasts] = await pool.query(`
-//       SELECT p.*, pc.name as category_name 
-//       FROM Podcast p
-//       LEFT JOIN PodcastCategory pc ON p.category_id = pc.id
-//       WHERE p.title LIKE ? OR p.description LIKE ?
-//     `, [`%${search}%`, `%${search}%`]);
-    
-//     res.json(podcasts);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Failed to search podcasts' });
-//   }
-// };
-
-// // Increment views for a podcast
-// exports.incrementViews = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const [result] = await pool.query(
-//       'UPDATE Podcast SET views = views + 1 WHERE id = ?',
-//       [id]
-//     );
-//     if (result.affectedRows === 0) return res.status(404).json({ error: 'Podcast not found' });
-//     res.json({ message: 'View count incremented' });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// };
-
-// // Toggle featured status for a podcast
-// exports.toggleFeatured = async (req, res) => {
-//   try {
-//     const { id } = req.params;
-//     const [podcast] = await pool.query('SELECT is_featured FROM Podcast WHERE id = ?', [id]);
-//     if (podcast.length === 0) return res.status(404).json({ error: 'Podcast not found' });
-    
-//     const newStatus = !podcast[0].is_featured;
-//     await pool.query('UPDATE Podcast SET is_featured = ? WHERE id = ?', [newStatus, id]);
-    
-//     res.json({ is_featured: newStatus });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// };
-
-
 const Podcast = require('../models/podcastModel');
+const fs = require('fs');
+const path = require('path');
+const { promisify } = require('util');
+const unlinkAsync = promisify(fs.unlink);
+
+exports.createPodcast = async (req, res) => {
+  try {
+    // Validate required fields
+    const requiredFields = ['title', 'description', 'author', 'videoSrc', 'duration', 'category'];
+  
+    for (const field of requiredFields) {
+      if (!req.body[field]) {
+        // If there's an uploaded file but validation fails, clean it up
+        if (req.file) {
+          await unlinkAsync(req.file.path);
+        }
+        return res.status(400).json({
+          success: false,
+          error: `${field} is required`
+        });
+      }
+    }
+
+    // // Validate image file was uploaded if required
+    // if (!req.file) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     error: 'Podcast image is required'
+    //   });
+    // }
+
+    // In your controller
+    if (req.fileValidationError) {
+      return res.status(400).json({ error: req.fileValidationError });
+    }
+
+    console.log(req.body);
+
+
+    // Prepare podcast data
+    const podcastData = {
+      title: req.body.title,
+      description: req.body.description,
+      author: req.body.author,
+      image: req.body.image.replace(/\\/g, '/'), // Convert Windows paths to forward slashes
+      videoSrc: req.body.videoSrc,
+      embeddedLink: req.body.embeddedLink || generateEmbedLink(req.body.videoSrc),
+      duration: parseInt(req.body.duration) || 0,
+      resolution: req.body.resolution || '1080p',
+      category: req.body.category,
+      is_published: req.body.is_published === 'true' || req.body.is_published === true
+    };
+
+    // Create podcast
+    const newPodcast = await Podcast.createPodcast(podcastData);
+
+    // Success response
+    res.status(201).json({
+      success: true,
+      data: {
+        ...newPodcast,
+        // Return public URL if using cloud storage
+        imageUrl: `${req.protocol}://${req.get('host')}/${newPodcast.image}`
+      }
+    });
+
+  } catch (error) {
+    // Clean up uploaded file if error occurs
+    if (req.file) {
+      try {
+        await unlinkAsync(req.file.path);
+      } catch (unlinkError) {
+        console.error('Failed to clean up uploaded file:', unlinkError);
+      }
+    }
+    console.log('Error message: ', error.message);
+    // Error response
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+};
+
+exports.updateImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { image } = req.body;
+    console.log(image);
+    // Validate required fields
+    if (!image) {
+      return res.status(400).json({
+        success: false,
+        error: 'Image is required'
+      });
+    }
+
+    // Find the podcast first to get the current image
+    const podcast = await Podcast.findById(id);
+    if (!podcast) {
+      return res.status(404).json({
+        success: false,
+        error: 'Podcast not found'
+      });
+    }
+
+    // Delete old image if it exists
+    if (podcast.image) {
+      const imagePath = path.join(__dirname, '..', podcast.image);
+      
+      // Check if file exists before trying to delete
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath); // Delete the file
+      }
+    }
+
+    // Update with new image
+    const updatedPodcast = await Podcast.updateImage(
+      id,
+      image
+    );
+
+    res.json({ 
+      success: true,
+      data: image
+    });
+
+  } catch (error) {
+    console.error('Error updating image:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
+  }
+};
+
+// Helper function to generate embed link from video URL
+function generateEmbedLink(videoUrl) {
+  if (!videoUrl) return null;
+  
+  // Example for YouTube URLs
+  if (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')) {
+    const videoId = videoUrl.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+    return videoId ? `https://www.youtube.com/embed/${videoId[1]}` : null;
+  }
+  
+  // Add other video providers as needed
+  return videoUrl;
+}
 
 exports.getPodcasts = async (req, res) => {
   try {
@@ -164,6 +160,42 @@ exports.getPodcasts = async (req, res) => {
     res.json({
       success: true,
       data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.getPodcastById = async (req, res) => {
+  try {
+    const podcast = await Podcast.findById(req.params.id);
+    if (!podcast) {
+      return res.status(404).json({
+        success: false,
+        error: 'Podcast not found'
+      });
+    }
+    res.json({
+      success: true,
+      podcast: podcast
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+exports.getCount = async (req, res) => {
+  try {
+    const count = await Podcast.getCount();
+    res.json({
+      success: true,
+      count
     });
   } catch (error) {
     res.status(500).json({
@@ -190,6 +222,25 @@ exports.getPodcastStats = async (req, res) => {
 
 exports.deletePodcast = async (req, res) => {
   try {
+
+    // Find the podcast first to get the current image
+    const podcast = await Podcast.findById(req.params.id);
+    if (!podcast) {
+      return res.status(404).json({
+        success: false,
+        error: 'Podcast not found'
+      });
+    }
+
+    // Delete old image if it exists
+    if (podcast.image) {
+      const imagePath = path.join(__dirname, '..', podcast.image);
+      // Check if file exists before trying to delete
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath); // Delete the file
+      }
+    }
+
     const success = await Podcast.delete(req.params.id);
     if (!success) {
       return res.status(404).json({

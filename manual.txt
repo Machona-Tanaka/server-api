@@ -97,18 +97,70 @@ CREATE TABLE IF NOT EXISTS podcasts (
   title VARCHAR(255) NOT NULL,
   description TEXT NOT NULL,
   author VARCHAR(255) NOT NULL,
-  thumbnail_url VARCHAR(255),
-  video_url VARCHAR(255) NOT NULL,
+  image VARCHAR(255),
+  videoSrc VARCHAR(255) NOT NULL,
+  embeddedLink VARCHAR(255) NOT NULL,
   duration INT NOT NULL COMMENT 'In seconds',
-  file_size INT COMMENT 'In megabytes',
   resolution VARCHAR(20) COMMENT 'e.g., 1080p, 4K',
   category VARCHAR(100) NOT NULL,
+  views INT DEFAULT 0,
   is_published BOOLEAN DEFAULT FALSE,
   publish_date DATETIME DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FULLTEXT INDEX idx_search (title, description, author)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO podcasts (
+  title, 
+  description, 
+  author, 
+  image, 
+  videoSrc, 
+  embeddedLink, 
+  duration, 
+  resolution, 
+  category, 
+  is_published
+) VALUES 
+(
+  'History of the Internet',
+  'How the internet evolved from ARPANET to today\'s global network.',
+  'Professor Alan Turing',
+  'https://example.com/thumbs/internet-history.jpg',
+  'https://example.com/videos/internet-history.mp4',
+  'https://youtube.com/embed/internet-history345',
+  2700, -- 45 minutes
+  '1080p',
+  'History',
+  TRUE
+),
+(
+  'Cooking with Seasonal Ingredients',
+  'Chef Maria shares recipes using this month\'s freshest produce.',
+  'Chef Maria Gonzalez',
+  'https://example.com/thumbs/seasonal-cooking.jpg',
+  'https://example.com/videos/seasonal-cooking.mp4',
+  'https://youtube.com/embed/seasonal-cooking678',
+  1800, -- 30 minutes
+  '720p',
+  'Food',
+  TRUE
+),
+(
+  'Mindfulness Meditation Guide',
+  '20-minute guided meditation for stress relief.',
+  'Zen Master Li',
+  'https://example.com/thumbs/meditation-guide.jpg',
+  'https://example.com/videos/meditation-guide.mp4',
+  'https://youtube.com/embed/meditation-guide901',
+  1200, -- 20 minutes
+  '720p',
+  'Wellness',
+  TRUE
+);
+
+
 
 -- ====================================
 -- 💬 COMMENTS TABLE (MULTI-CONTENT)
@@ -299,15 +351,15 @@ INSERT INTO PodcastCategory (name) VALUES
 
 
 -- Insert sample video podcasts
-INSERT INTO podcasts (title, description, author, thumbnail_url, video_url, duration, resolution, file_size, category, is_published) VALUES
-('Getting Started with React', 'Learn React fundamentals in 30 minutes', 'Jane Developer', 'https://example.com/thumbnails/react.jpg', 'https://example.com/videos/react.mp4', 1800, '1080p', 450, 'Programming', TRUE),
-('Advanced CSS Techniques', 'Master modern CSS layouts and animations', 'John Designer', 'https://example.com/thumbnails/css.jpg', 'https://example.com/videos/css.mp4', 2700, '720p', 320, 'Design', TRUE),
-('Node.js Performance Tips', 'Optimize your Node applications', 'Sam Backend', 'https://example.com/thumbnails/node.jpg', 'https://example.com/videos/node.mp4', 2400, '4K', 680, 'Programming', TRUE),
-('UX Design Principles', 'Essential UX practices for developers', 'Lisa UX', 'https://example.com/thumbnails/ux.jpg', 'https://example.com/videos/ux.mp4', 2100, '1080p', 380, 'Design', FALSE),
-('Docker for Beginners', 'Containerize your applications', 'Alex DevOps', 'https://example.com/thumbnails/docker.jpg', 'https://example.com/videos/docker.mp4', 3600, '720p', 520, 'DevOps', TRUE),
-('Mobile App Development', 'Build cross-platform apps with Flutter', 'Taylor Mobile', 'https://example.com/thumbnails/flutter.jpg', 'https://example.com/videos/flutter.mp4', 3300, '1080p', 610, 'Mobile', TRUE),
-('Database Optimization', 'SQL and NoSQL performance tuning', 'Chris DBA', 'https://example.com/thumbnails/db.jpg', 'https://example.com/videos/database.mp4', 3900, '720p', 430, 'Database', FALSE),
-('Web Security Basics', 'Protect your web applications', 'Pat Security', 'https://example.com/thumbnails/security.jpg', 'https://example.com/videos/security.mp4', 2250, '1080p', 350, 'Security', TRUE);
+-- INSERT INTO podcasts (title, description, author, thumbnail_url, video_url, duration, resolution, file_size, category, is_published) VALUES
+-- ('Getting Started with React', 'Learn React fundamentals in 30 minutes', 'Jane Developer', 'https://example.com/thumbnails/react.jpg', 'https://example.com/videos/react.mp4', 1800, '1080p', 450, 'Programming', TRUE),
+-- ('Advanced CSS Techniques', 'Master modern CSS layouts and animations', 'John Designer', 'https://example.com/thumbnails/css.jpg', 'https://example.com/videos/css.mp4', 2700, '720p', 320, 'Design', TRUE),
+-- ('Node.js Performance Tips', 'Optimize your Node applications', 'Sam Backend', 'https://example.com/thumbnails/node.jpg', 'https://example.com/videos/node.mp4', 2400, '4K', 680, 'Programming', TRUE),
+-- ('UX Design Principles', 'Essential UX practices for developers', 'Lisa UX', 'https://example.com/thumbnails/ux.jpg', 'https://example.com/videos/ux.mp4', 2100, '1080p', 380, 'Design', FALSE),
+-- ('Docker for Beginners', 'Containerize your applications', 'Alex DevOps', 'https://example.com/thumbnails/docker.jpg', 'https://example.com/videos/docker.mp4', 3600, '720p', 520, 'DevOps', TRUE),
+-- ('Mobile App Development', 'Build cross-platform apps with Flutter', 'Taylor Mobile', 'https://example.com/thumbnails/flutter.jpg', 'https://example.com/videos/flutter.mp4', 3300, '1080p', 610, 'Mobile', TRUE),
+-- ('Database Optimization', 'SQL and NoSQL performance tuning', 'Chris DBA', 'https://example.com/thumbnails/db.jpg', 'https://example.com/videos/database.mp4', 3900, '720p', 430, 'Database', FALSE),
+-- ('Web Security Basics', 'Protect your web applications', 'Pat Security', 'https://example.com/thumbnails/security.jpg', 'https://example.com/videos/security.mp4', 2250, '1080p', 350, 'Security', TRUE);
 
 insert into Account(email, username, user_role, phone, password_hash)
 values ('admin@gmail.com','Admin', 'admin', '0000000000', '$2b$10$2B6taYWJJjesOfRRjP5TLOIRZDMlcjnp8UNGkHbyQGJOit4J1917K');

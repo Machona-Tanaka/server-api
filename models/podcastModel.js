@@ -1,74 +1,18 @@
-// const pool = require('../config/db');
-
-// class Podcast {
-//   static async findAll() {
-//     const [podcasts] = await pool.query(`
-//       SELECT p.*, pc.name as category_name 
-//       FROM Podcast p
-//       LEFT JOIN PodcastCategory pc ON p.category_id = pc.id
-//     `);
-//     return podcasts;
-//   }
-
-//   static async findById(id) {
-//     const [podcast] = await pool.query('SELECT * FROM Podcast WHERE id = ?', [id]);
-//     return podcast[0];
-//   }
-
-//   static async create(podcastData) {
-//     const { title, host, duration, release_date, image_url, category_id, description, video_url } = podcastData;
-//     const [result] = await pool.query(
-//       'INSERT INTO Podcast (title, host, duration, release_date, image_url, category_id, description, video_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-//       [title, host, duration, release_date, image_url, category_id, description, video_url]
-//     );
-//     return { id: result.insertId, ...podcastData };
-//   }
-
-//   static async update(id, podcastData) {
-//     const { title, host, duration, release_date, image_url, category_id, description, video_url } = podcastData;
-//     const [result] = await pool.query(
-//       'UPDATE Podcast SET title = ?, host = ?, duration = ?, release_date = ?, image_url = ?, category_id = ?, description = ?, video_url = ? WHERE id = ?',
-//       [title, host, duration, release_date, image_url, category_id, description, video_url, id]
-//     );
-//     return result.affectedRows > 0;
-//   }
-
-//   static async delete(id) {
-//     const [result] = await pool.query('DELETE FROM Podcast WHERE id = ?', [id]);
-//     return result.affectedRows > 0;
-//   }
-
-//   static async getCategories() {
-//     const [categories] = await pool.query('SELECT * FROM PodcastCategory');
-//     return categories;
-//   }
-
-
-//   static async incrementViews(id) {
-//     const [result] = await pool.query(
-//       'UPDATE Podcast SET views = views + 1 WHERE id = ?',
-//       [id]
-//     );
-//     return result.affectedRows > 0;
-//   }
-
-//   static async toggleFeatured(id) {
-//     const [podcast] = await pool.query('SELECT is_featured FROM Podcast WHERE id = ?', [id]);
-//     if (podcast.length === 0) return false;
-    
-//     const newStatus = !podcast[0].is_featured;
-//     await pool.query('UPDATE Podcast SET is_featured = ? WHERE id = ?', [newStatus, id]);
-//     return newStatus;
-//   }
-
-
-// }
-
-// module.exports = Podcast;
 
 const db = require('../config/db');
 
 class Podcast {
+
+  static async createPodcast(data) {
+    const { title, description, author, image, videoSrc, embeddedLink, duration, resolution, category, is_published } = data;
+    const [result] = await db.query(
+      `INSERT INTO podcasts (title, description, author, image, videoSrc, embeddedLink, duration, resolution, category, is_published)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description, author, image, videoSrc, embeddedLink, duration, resolution, category, is_published]
+    );
+    return { id: result.insertId, ...data };
+  }
+
   static async findAll({ search = '', page = 1, limit = 10 }) {
     const offset = (page - 1) * limit;
     let query = `SELECT * FROM podcasts`;
@@ -96,19 +40,40 @@ class Podcast {
     };
   }
 
+  static async findById(id) {
+    const [[podcast]] = await db.query(`SELECT * FROM podcasts WHERE id = ?`, [id]);
+    return podcast;
+  }
+
+  static async updateImage(id, image) {
+    const [result] = await db.query(
+      `UPDATE podcasts SET image = ? WHERE id = ?`,
+      [image, id]
+    );
+    return result.affectedRows > 0;
+  }
+
   static async getStats() {
     const [latest] = await db.query(
-      `SELECT id, title, thumbnail_url, duration FROM podcasts 
-       ORDER BY publish_date DESC LIMIT 5`
+      `SELECT id, title, image, duration FROM podcasts`
     );
     
     const [categories] = await db.query(
       `SELECT category, COUNT(*) as count FROM podcasts GROUP BY category`
     );
     
-    const [[{ total }]] = await db.query(`SELECT COUNT(*) as total FROM podcasts`);
-    
-    return { total, latest, categories };
+    const [[{ totalPodcasts }]] = await db.query(`SELECT COUNT(*) as totalPodcasts FROM podcasts`);
+
+    const [[{ averageViews }]] = await db.query(`SELECT AVG(views) as averageViews FROM podcasts`);
+
+    const [[{ averageDuration }]] = await db.query(`SELECT AVG(duration) as averageDuration FROM podcasts`);
+
+    return { totalPodcasts: parseInt(totalPodcasts), averageViews: parseInt(averageViews), latest, categories, averageDuration: parseFloat(averageDuration) };
+  }
+
+  static async getCount() {
+    const [[{count}]] = await db.query(`SELECT COUNT(*) as count FROM podcasts`);
+    return count;
   }
 
   static async delete(id) {
@@ -117,13 +82,19 @@ class Podcast {
   }
 
   static async update(id, data) {
-    const validFields = ['title', 'description', 'author', 'thumbnail_url', 
-                        'video_url', 'category', 'is_published'];
+    const validFields = ['title', 'description', 'author', 'embeddedLink', 
+                        'videoSrc', 'category', 'duration', 'is_published', 'publish_date'  ];
     const updates = [];
     const values = [];
     
     validFields.forEach(field => {
-      if (data[field] !== undefined) {
+      if (field == 'is_published') {
+        updates.push(`${field} = ?`);
+        values.push(data[field] === 'true' ? 1 : 0);
+      } else if (field == 'publish_date') {
+        updates.push(`${field} = ?`);
+        values.push(data[field] ? new Date(data[field]) : null);
+      } else if (data[field] !== undefined) {
         updates.push(`${field} = ?`);
         values.push(data[field]);
       }
